@@ -34,14 +34,14 @@ check_root() {
 
 update_system() {
     log "Updating package lists..."
-    apt-get update -y
+    apt-get update -y > /dev/null 2>&1
 }
 
 # --- Service Functions ---
 
 setup_http() {
     log "Setting up HTTP (Nginx)..."
-    apt-get install -y nginx
+    apt-get install -y nginx > /dev/null 2>&1
 
     # Create index.html with "Hello World!"
     echo "Hello World!" > /var/www/html/index.html
@@ -55,7 +55,7 @@ setup_http() {
 
 setup_ftp() {
     log "Setting up FTP (vsftpd)..."
-    apt-get install -y vsftpd
+    apt-get install -y vsftpd > /dev/null 2>&1
 
     # Backup original config
     if [ ! -f /etc/vsftpd.conf.bak ]; then
@@ -75,13 +75,13 @@ setup_ftp() {
     chown ftp:ftp /srv/ftp/iloveftp.txt
     chmod 644 /srv/ftp/iloveftp.txt
 
-    systemctl restart vsftpd
+    systemctl restart vsftpd > /dev/null 2>&1
     log "FTP setup complete."
 }
 
 setup_dns() {
     log "Setting up DNS (Bind9)..."
-    apt-get install -y bind9 bind9utils bind9-doc
+    apt-get install -y bind9 bind9utils bind9-doc > /dev/null 2>&1
 
     # Copy configs
     if [ -f "configs/named.conf.options" ]; then
@@ -98,13 +98,13 @@ setup_dns() {
         cp configs/db.test.local /etc/bind/db.test.local
     fi
 
-    systemctl restart bind9
+    systemctl restart bind9 > /dev/null 2>&1
     log "DNS setup complete."
 }
 
 setup_sql() {
     log "Setting up SQL (MariaDB)..."
-    apt-get install -y mariadb-server
+    apt-get install -y mariadb-server > /dev/null 2>&1
 
     # Configure to listen on all interfaces
     # We create a custom config file to override the default bind-address.
@@ -112,12 +112,12 @@ setup_sql() {
     echo "[mysqld]" > /etc/mysql/mariadb.conf.d/99-ncae.cnf
     echo "bind-address = 0.0.0.0" >> /etc/mysql/mariadb.conf.d/99-ncae.cnf
 
-    systemctl restart mariadb
+    systemctl restart mariadb > /dev/null 2>&1
 
     # Run init script
     if [ -f "configs/init.sql" ]; then
         log "Running SQL init script..."
-        mysql < configs/init.sql
+        mysql < configs/init.sql 2>/dev/null
     else
         warn "configs/init.sql not found! Database not initialized."
     fi
@@ -127,11 +127,11 @@ setup_sql() {
 
 setup_ssh() {
     log "Setting up SSH..."
-    apt-get install -y openssh-server
+    apt-get install -y openssh-server > /dev/null 2>&1
 
     # Create ssh-user if it doesn't exist
     if ! id "ssh-user" &>/dev/null; then
-        useradd -m -s /bin/bash ssh-user
+        /usr/sbin/useradd -m -s /bin/bash ssh-user
         log "Created user: ssh-user"
     fi
 
@@ -148,7 +148,7 @@ setup_ssh() {
     sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
     
-    systemctl restart ssh
+    systemctl restart ssh > /dev/null 2>&1
     log "SSH setup complete."
 }
 
@@ -157,20 +157,20 @@ setup_security() {
     
     # 1. Reset potential Red Team configurations
     # Flush existing iptables rules (clears malicious open ports)
-    iptables -F
-    iptables -X
-    iptables -t nat -F
-    iptables -t nat -X
+    iptables -F > /dev/null 2>&1
+    iptables -X > /dev/null 2>&1
+    iptables -t nat -F > /dev/null 2>&1
+    iptables -t nat -X > /dev/null 2>&1
     
     # Disable conflicting firewall services
     systemctl stop firewalld 2>/dev/null || true
     systemctl disable firewalld 2>/dev/null || true
 
     # 2. Install & Configure UFW
-    apt-get install -y ufw
+    apt-get install -y ufw > /dev/null 2>&1
 
     # Default policies from scratch
-    ufw --force reset
+    ufw --force reset > /dev/null 2>&1
     ufw default deny incoming
     ufw default allow outgoing
 
@@ -208,7 +208,7 @@ setup_security() {
     
     log "Hardening PAM (Pluggable Authentication Modules)..."
     # Reinstall PAM to try and reset modified config files
-    apt-get install --reinstall -y libpam-runtime libpam-modules
+    apt-get install --reinstall -y libpam-runtime libpam-modules > /dev/null 2>&1
     
     # Check for "permit" backdoor (allowing anyone in)
     if grep -q "pam_permit.so" /etc/pam.d/common-auth; then
@@ -238,7 +238,7 @@ setup_security() {
     done
 
     # 4. Enable firewall (non-interactive)
-    ufw --force enable
+    ufw --force enable > /dev/null 2>&1
 
     log "Firewall enabled, rules flushed, and basics hardened."
     
