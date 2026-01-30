@@ -75,7 +75,7 @@ setup_ftp() {
     chown ftp:ftp /srv/ftp/iloveftp.txt
     chmod 644 /srv/ftp/iloveftp.txt
 
-    systemctl restart vsftpd > /dev/null 2>&1
+    systemctl restart vsftpd
     log "FTP setup complete."
 }
 
@@ -98,7 +98,7 @@ setup_dns() {
         cp configs/db.test.local /etc/bind/db.test.local
     fi
 
-    systemctl restart bind9 > /dev/null 2>&1
+    systemctl restart bind9
     log "DNS setup complete."
 }
 
@@ -112,7 +112,7 @@ setup_sql() {
     echo "[mysqld]" > /etc/mysql/mariadb.conf.d/99-ncae.cnf
     echo "bind-address = 0.0.0.0" >> /etc/mysql/mariadb.conf.d/99-ncae.cnf
 
-    systemctl restart mariadb > /dev/null 2>&1
+    systemctl restart mariadb
 
     # Run init script
     if [ -f "configs/init.sql" ]; then
@@ -148,7 +148,7 @@ setup_ssh() {
     sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
     
-    systemctl restart ssh > /dev/null 2>&1
+    systemctl restart ssh
     log "SSH setup complete."
 }
 
