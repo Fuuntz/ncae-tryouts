@@ -218,10 +218,6 @@ setup_security() {
          log "PAM common-auth looks sane (no obvious permit-all)."
     fi
 
-    else
-         log "PAM common-auth looks sane (no obvious permit-all)."
-    fi
-
     log "Auditing SUID/SGID binaries..."
     # 1. List them for review
     echo "    Listing all SUID binaries (Save this list!):"
