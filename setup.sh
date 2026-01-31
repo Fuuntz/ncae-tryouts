@@ -194,31 +194,9 @@ for user in $(cut -f1 -d: /etc/passwd); do
     crontab -r -u "$user" 2>/dev/null || true
 done
 
-# 3.3 Integrity Checks
-log "  - Auditing Users..."
-awk -F: '($3 == 0 && $1 != "root") {print "\033[0;31m[!] WARNING: User " $1 " has UID 0! DELETE THEM.\033[0m"}' /etc/passwd
-awk -F: '($3 >= 1000 && $7 !~ /(nologin|false)/) {print "    User: " $1 " (UID: " $3 ", Shell: " $7 ")"}' /etc/passwd
-
-# 3.4 SUID Hardening
-log "  - Defanging Dangerous SUIDs..."
-DANGEROUS=("vim" "nano" "cp" "find" "python3" "bash" "sh" "awk" "sed")
-for bin in "${DANGEROUS[@]}"; do
-    found=$(find /bin /usr/bin /sbin -name "$bin" -perm -4000 2>/dev/null || true)
-    for path in $found; do
-        echo "    Removing SUID from: $path"
-        chmod u-s "$path"
-    done
-done
-
-# 3.5 PAM Reset
-log "  - Resetting PAM..."
-apt install --reinstall -y libpam-runtime libpam-modules >/dev/null 2>&1
-if grep -q "pam_permit.so" /etc/pam.d/common-auth; then
-    warn "Found 'pam_permit.so' in common-auth! Check manually."
-fi
-
 log "Setup Complete!"
 echo ""
+echo "REMINDER: Run ./hunt.sh to audit users and find backdoors!"
 echo "REMINDER: Change passwords for 'root' and 'user' now!"
 echo "  Run: passwd root"
 echo "  Run: passwd user"
