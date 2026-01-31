@@ -1,6 +1,4 @@
 #!/bin/bash
-# NCAE Threat Hunting Script
-# Usage: sudo ./hunt.sh
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -12,9 +10,6 @@ if [ "$EUID" -ne 0 ]; then
     echo "Please run as root"
     exit 1
 fi
-
-echo -e "${BLUE}=== NCAE Threat Hunting & Hardening ===${NC}"
-echo "This script helps you find and remove backdoors manually."
 
 # --- 1. User Audit ---
 echo -e "\n${YELLOW}[1] Auditing Users${NC}"
@@ -75,5 +70,4 @@ find /etc /bin /sbin /usr/bin /usr/sbin -type f -perm -0002 2>/dev/null | while 
     echo "    RECOMMENDATION: chmod o-w $file"
 done
 
-echo -e "\n${BLUE}=== Hunting Complete ===${NC}"
-echo "Good luck!"
+echo -e "\n${BLUE}--- Done ---${NC}"

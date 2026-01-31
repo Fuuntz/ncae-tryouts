@@ -1,6 +1,4 @@
 #!/bin/bash
-# NCAE Competition Setup Script - Simplified & Hardened
-# Usage: sudo ./setup.sh
 
 set -e
 
