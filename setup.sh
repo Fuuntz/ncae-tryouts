@@ -32,21 +32,21 @@ export PATH=$PATH:/usr/sbin:/sbin
 
 # --- 1. System Update ---
 log "Updating package lists..."
-apt update -y >/dev/null 2>&1
+apt update -y >> "$LOG_FILE" 2>&1
 
 # --- 2. Services ---
 
 # 2.1 HTTP (Nginx)
 log "Setting up HTTP (Nginx)..."
-apt install -y nginx >/dev/null 2>&1
+apt install -y nginx >> "$LOG_FILE" 2>&1
 echo "Hello World!" > /var/www/html/index.html
 # Nginx permissions: defaults usually work, but this ensures www-data can read it.
 chown www-data:www-data /var/www/html/index.html
-systemctl restart nginx
+systemctl restart nginx >> "$LOG_FILE" 2>&1
 
 # 2.2 FTP (vsftpd)
 log "Setting up FTP (vsftpd)..."
-apt install -y vsftpd >/dev/null 2>&1
+apt install -y vsftpd >> "$LOG_FILE" 2>&1
 # Backup default
 cp /etc/vsftpd.conf /etc/vsftpd.conf.bak 2>/dev/null || true
 # Inline Config Modification (Safer than replacing)
@@ -70,11 +70,11 @@ echo "iloveftp" > /srv/ftp/iloveftp.txt
 chown root:root /srv/ftp
 chmod 755 /srv/ftp
 chown ftp:ftp /srv/ftp/iloveftp.txt
-systemctl restart vsftpd
+systemctl restart vsftpd >> "$LOG_FILE" 2>&1
 
 # 2.3 DNS (Bind9)
 log "Setting up DNS (Bind9)..."
-apt install -y bind9 bind9utils bind9-doc >/dev/null 2>&1
+apt install -y bind9 bind9utils bind9-doc >> "$LOG_FILE" 2>&1
 # Define Zone
 if ! grep -q "test.local" /etc/bind/named.conf.local; then
     cat <<EOF >> /etc/bind/named.conf.local
@@ -99,12 +99,12 @@ cat <<EOF > /etc/bind/db.test.local
 @       IN      A       10.10.10.10
 ns      IN      A       10.10.10.10
 EOF
-systemctl restart bind9
+systemctl restart bind9 >> "$LOG_FILE" 2>&1
 
 # 2.4 SQL (MariaDB)
 log "Setting up SQL (MariaDB)..."
-apt install -y mariadb-server >/dev/null 2>&1
-systemctl start mariadb
+apt install -y mariadb-server >> "$LOG_FILE" 2>&1
+systemctl start mariadb >> "$LOG_FILE" 2>&1
 # Init Database, Table, and User
 mysql -e "CREATE DATABASE IF NOT EXISTS cyberforce;"
 mysql -e "CREATE TABLE IF NOT EXISTS cyberforce.supersecret (id INT AUTO_INCREMENT PRIMARY KEY, data INT);"
@@ -115,17 +115,17 @@ mysql -e "FLUSH PRIVILEGES;"
 # Configure Remote Access (Override)
 echo "[mysqld]" > /etc/mysql/mariadb.conf.d/99-ncae.cnf
 echo "bind-address = 0.0.0.0" >> /etc/mysql/mariadb.conf.d/99-ncae.cnf
-systemctl restart mariadb
+systemctl restart mariadb >> "$LOG_FILE" 2>&1
 
 # 2.5 SSH
 log "Setting up SSH..."
-apt install -y openssh-server >/dev/null 2>&1
+apt install -y openssh-server >> "$LOG_FILE" 2>&1
 if ! id "ssh-user" &>/dev/null; then
     /usr/sbin/useradd -m -s /bin/bash ssh-user
 fi
 # Auth Key
 mkdir -p /home/ssh-user/.ssh
-echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCxm2qvXKjqVOqytO3r8MzlAoGVUP8AS31PaCkkpi7piFNhvRTQARDXoGdg5CRjT/tWvKzpufao9glVzTyKzOacS+UHJanbUIC1zqSaWeH4aITLcmqnpb+BmvtU/eGhx/pQJHPVraxv/Tls4Cmt4ptHBJXUx0S+ldFp6YCqFxMpKIe6Mx+DKFGyL0Eisn9PbDqQK10CyMcL6PIftdp42Q8Zm3J2F4KoQGlR6Ba02SnJN8c1H9o+dDJh3pjR5m5SJpRL1/Lk+DBnk/B/xC2CYFLtT4EBVVWD3u5bonuWcrTXICXYPPoHcl/PSEnYpnLv8QuYVrqyIW9oCp+RfbtCv0DrO9gSFXa6/mWzs1jMXVYpxizOeJgIzBQxMC52oiyFeZIBdsfrcVvRdh4WrRWKm8N04wftfkukwTfuLvuos729ydBO+81xtJ9vk3cnc+uOmy/0kFRJ0ad2eJY464eFTss03dAm4kqm6Q91CsKTJdlkBxXM6za+zRn6MnTDqMuLJU= root@debian12" > /home/ssh-user/.ssh/authorized_keys
+echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCxm2qvXKjqVOqytO3r8MzlAoGVUP8AS31PaCkkpi7piFNhvRTQARDXoGdg5CRjT/tWvKzpufao9glVzTyKzOacS+UHJanbUIC1zqSaWeH4aITLcmqnpb+BmvtU/eGhx/pQJHPVraxv/Tls4Cmt4ptHBJXUx0S+ldFp6YCqFxMpKIe6Mx+DKFGyL0Eisn9PbDqQK10CyMcL6PIftdp42Q8Zm3J2F4KoQGlR6Ba02SnJN8c1H9o+dDJh3pjR5m5SJpRL1/Lk+DBnk/B/xC2CYFLtT4EBVVWD3u5bonuWcrTXICXYPPoHcl/PSEnYpnLv8QuYVrq8yIW9oCp+RfbtCv0DrO9gSFXa6/mWzs1jMXVYpxizOeJgIzBQxMC52oiyFeZIBdsfrcVvRdh4WrRWKm8N04wftfkukwTfuLvuos729ydBO+81xtJ9vk3cnc+uOmy/0kFRJ0ad2eJY464eFTss03dAm4kqm6Q91CsKTJdlkBxXM6za+zRn6MnTDqMuLJU= root@debian12" > /home/ssh-user/.ssh/authorized_keys
 chown -R ssh-user:ssh-user /home/ssh-user/.ssh
 chmod 700 /home/ssh-user/.ssh
 chmod 600 /home/ssh-user/.ssh/authorized_keys
@@ -135,26 +135,26 @@ chmod 600 /home/ssh-user/.ssh/authorized_keys
 # sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 # sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-systemctl restart ssh
+systemctl restart ssh >> "$LOG_FILE" 2>&1
 
 # --- 3. Security Hardening ---
 log "Applying Security Hardening..."
 
 # 3.1 Firewall
 log "  - Resetting Firewall..."
-apt install -y iptables >/dev/null 2>&1
+apt install -y iptables >> "$LOG_FILE" 2>&1
 # Preventive: Set default policies to ACCEPT before flushing to avoid locking out SSH
 iptables -P INPUT ACCEPT
 iptables -P OUTPUT ACCEPT
 iptables -P FORWARD ACCEPT
-iptables -F >/dev/null 2>&1 || true
-iptables -X >/dev/null 2>&1 || true
-systemctl stop firewalld 2>/dev/null || true
-systemctl disable firewalld 2>/dev/null || true
+iptables -F >> "$LOG_FILE" 2>&1 || true
+iptables -X >> "$LOG_FILE" 2>&1 || true
+systemctl stop firewalld >> "$LOG_FILE" 2>&1 || true
+systemctl disable firewalld >> "$LOG_FILE" 2>&1 || true
 
 log "  - Installing UFW..."
 # Un-silenced to debug installation issues
-apt install -y ufw
+apt install -y ufw >> "$LOG_FILE" 2>&1
 
 if ! command -v ufw &> /dev/null; then
     warn "UFW failed to install! Checking path or package manager..."
@@ -167,22 +167,22 @@ if ! command -v ufw &> /dev/null; then
     fi
 fi
 
-ufw --force reset >/dev/null 2>&1
+ufw --force reset >> "$LOG_FILE" 2>&1
 ufw default deny incoming
 ufw default allow outgoing
 
 # Allow Critical Services
-ufw allow 22/tcp comment 'SSH'
-ufw allow 80/tcp comment 'HTTP'
-ufw allow 21/tcp comment 'FTP'
-ufw allow 53/tcp comment 'DNS TCP'
-ufw allow 53/udp comment 'DNS UDP'
-ufw allow 3306/tcp comment 'SQL'
+ufw allow 22/tcp comment 'SSH' >> "$LOG_FILE" 2>&1
+ufw allow 80/tcp comment 'HTTP' >> "$LOG_FILE" 2>&1
+ufw allow 21/tcp comment 'FTP' >> "$LOG_FILE" 2>&1
+ufw allow 53/tcp comment 'DNS TCP' >> "$LOG_FILE" 2>&1
+ufw allow 53/udp comment 'DNS UDP' >> "$LOG_FILE" 2>&1
+ufw allow 3306/tcp comment 'SQL' >> "$LOG_FILE" 2>&1
 
 # Required for FTP Passive Mode (if client requests it) - High ports
-ufw allow 40000:50000/tcp comment 'FTP Passive'
+ufw allow 40000:50000/tcp comment 'FTP Passive' >> "$LOG_FILE" 2>&1
 
-ufw --force enable >/dev/null 2>&1
+ufw --force enable >> "$LOG_FILE" 2>&1
 log "Firewall Rules Applied:"
 ufw status verbose | grep "21" || warn "FTP Port 21 might not be allowed!"
 
