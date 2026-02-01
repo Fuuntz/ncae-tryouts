@@ -1,4 +1,6 @@
 #!/bin/bash
+# NCAE Threat Hunting Checklist
+# Usage: sudo ./hunt.sh
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -11,63 +13,64 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# --- 1. User Audit ---
-echo -e "\n${YELLOW}[1] Auditing Users${NC}"
-echo "Checking for unauthorized UID 0 (root) users..."
-# Detect UID 0 other than root
-awk -F: '($3 == 0 && $1 != "root") {
-    print "'${RED}'[!] WARNING: User " $1 " has UID 0! DELETE THEM: userdel -f " $1 "'${NC}'"
-}' /etc/passwd
+header() {
+    echo -e "\n${BLUE}=== $1 ===${NC}"
+    echo "STEP: $2"
+}
 
-echo "Listing 'Human' Users (UID >= 1000 with login shells):"
-awk -F: '($3 >= 1000 && $7 !~ /(nologin|false)/) {print "    User: " $1 " (UID: " $3 ", Shell: " $7 ")"}' /etc/passwd
-echo -e "${BLUE}ACTION:${NC} If you see any user other than 'user' or 'ssh-user', delete them:"
-echo "    userdel -f -r <username>"
-read -p "Press Enter to continue..."
+prompt() {
+    echo -e "${YELLOW}ACTION:${NC} $1"
+    read -p "Press Enter to see findings (or Ctrl+C to stop)..."
+    eval "$2"
+    echo -e "\n${GREEN}RECOMMENDATION:${NC} $3"
+    read -p "    Done? Press Enter for next check..."
+}
 
-# --- 2. SUID Binary Audit ---
-echo -e "\n${YELLOW}[2] Auditing SUID Binaries${NC}"
-echo "Searching for SUID files (files that run as root)..."
-find / -type f -perm -4000 2>/dev/null > /tmp/suid_list.txt
+echo -e "${BLUE}=== NCAE Interactive Threat Hunt ===${NC}"
+echo "This script will show you system info. YOU must decide if it is bad."
 
-# Check for GTFOBins (Dangerous if SUID)
-DANGEROUS=("vim" "nano" "cp" "find" "python3" "bash" "sh" "awk" "sed" "nmap" "more" "less")
-FOUND_DANGER=0
+# --- 1. Shell Hygiene ---
+header "1. Shell Hygiene" "Checking for malicious aliases"
+prompt "Look for strange aliases (e.g., ls='rm -rf')." \
+    "alias" \
+    "Run 'unalias -a' to clear all aliases."
 
-echo "Checking for DANGEROUS SUID binaries..."
-for bin in "${DANGEROUS[@]}"; do
-    if grep -q "/$bin$" /tmp/suid_list.txt; then
-        FOUND_DANGER=1
-        path=$(grep "/$bin$" /tmp/suid_list.txt)
-        echo -e "${RED}[!] DANGER: $path has SUID set!${NC}"
-        echo "    RECOMMENDATION: chmod u-s $path"
-    fi
-done
+header "1. Shell Hygiene" "Checking .bashrc attributes"
+prompt "Look for 'i' (immutable) flag on .bashrc." \
+    "lsattr /home/*/.bashrc /root/.bashrc 2>/dev/null" \
+    "If immutable, run 'chattr -i <file>' then check contents."
 
-if [ $FOUND_DANGER -eq 0 ]; then
-    echo -e "${GREEN}No common GTFOBins found with SUID.${NC}"
-fi
-echo -e "${BLUE}ACTION:${NC} Review /tmp/suid_list.txt for other weird binaries."
-read -p "Press Enter to continue..."
+# --- 2. Identity & Access ---
+header "2. Identity & Access" "Checking Sudoers"
+prompt "Who is in the 'sudo' group? (Should only be 'user')." \
+    "grep sudo /etc/group" \
+    "Run 'gpasswd -d <username> sudo' to remove unauthorized admins."
 
-# --- 3. PAM & Auth Audit ---
-echo -e "\n${YELLOW}[3] Auditing Authentication (PAM)${NC}"
-# Reinstall is a safe baseline, but we check first
-echo "Checking /etc/pam.d/common-auth for 'pam_permit.so' (Backdoor)..."
-if grep -q "pam_permit.so" /etc/pam.d/common-auth; then
-    echo -e "${RED}[!] WARNING: Found 'pam_permit.so' in /etc/pam.d/common-auth!${NC}"
-    echo "    This allows login without accurate password."
-    echo "    RECOMMENDATION: Edit the file and remove that line, or run:"
-    echo "    apt install --reinstall -y libpam-runtime libpam-modules"
-else
-    echo -e "${GREEN}PAM common-auth looks clean (no pam_permit.so).${NC}"
-fi
+header "2. Identity & Access" "Checking User Shells"
+prompt "Look for weird shells (e.g., /bin/esrever, /bin/sh for normal users)." \
+    "awk -F: '(\$3 >= 1000) {print \$1 \" -> \" \$7}' /etc/passwd" \
+    "Run 'chsh -s /bin/bash <user>' to fix."
 
-# --- 4. World Writable Files ---
-echo -e "\n${YELLOW}[4] Checking for World-Writable Files in /etc and /bin${NC}"
-find /etc /bin /sbin /usr/bin /usr/sbin -type f -perm -0002 2>/dev/null | while read -r file; do
-    echo -e "${RED}[!] WARNING: World-writable file found: $file${NC}"
-    echo "    RECOMMENDATION: chmod o-w $file"
-done
+header "2. Identity & Access" "Checking UID 0 (God Mode)"
+prompt "Are there any root users besides 'root'?" \
+    "awk -F: '(\$3 == 0) {print \$1 \" (UID \" \$3 \")\"}' /etc/passwd" \
+    "Run 'userdel -f <user>' to delete fake roots immediately."
 
-echo -e "\n${BLUE}--- Done ---${NC}"
+# --- 3. Network & Persistence ---
+header "3. Network & Persistence" "Checking Listeners"
+prompt "Look for weird ports (4444, 1337, 666, 23 (telnet))." \
+    "ss -tulpn" \
+    "Identify PID, then run 'systemctl stop <service>' or 'kill -9 <pid>'."
+
+header "3. Network & Persistence" "Checking SUID Binaries"
+prompt "Look for standard tools (vim, find, cp, python) in this list." \
+    "find / -type f -perm -4000 2>/dev/null | grep -E '/bin/|/sbin/'" \
+    "Run 'chmod u-s <file>' to remove the danger."
+
+header "3. Network & Persistence" "Checking Systemd Services"
+prompt "Look for recently modified service files." \
+    "find /etc/systemd/system -type f -mtime -2 -exec ls -l {} \;" \
+    "Inspect file with 'cat', if bad: 'rm <file>' and 'systemctl daemon-reload'."
+
+echo -e "\n${BLUE}=== Hunt Complete ===${NC}"
+echo "Good hunting!"
