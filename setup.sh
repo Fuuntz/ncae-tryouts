@@ -130,10 +130,14 @@ chown -R ssh-user:ssh-user /home/ssh-user/.ssh
 chmod 700 /home/ssh-user/.ssh
 chmod 600 /home/ssh-user/.ssh/authorized_keys
 # Config Hardening
-# WARNING: Disabling password auth is best practice for security competitions,
-# but we will leave it enabled for now so you can log in easily.
-# sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-# sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+# 1. Enforce Port 22
+sed -i 's/#Port 22/Port 22/' /etc/ssh/sshd_config
+# 2. Enable Public Key Auth (Critical for us since we disable passwords)
+sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+# 3. Disable Password Auth (SECURITY: Prevents brute force)
+sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+# 4. Disable Root Login
 sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
 systemctl restart ssh >> "$LOG_FILE" 2>&1
 
